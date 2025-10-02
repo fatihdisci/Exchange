@@ -14,7 +14,7 @@
     }
     *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
     html,body{margin:0;height:100%;background:linear-gradient(180deg,#0b1222,#0f172a 40%,#0b1222)}
-    .wrap{max-width:720px;margin:0 auto;padding:20px}
+    .wrap{max-width:780px;margin:0 auto;padding:20px}
     header{display:flex;align-items:center;justify-content:space-between;color:var(--text);gap:12px}
     h1{font-size:18px;margin:0}
     .card{background:var(--card);border:1px solid var(--stroke);border-radius:16px;padding:16px;margin-top:12px;color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.35)}
@@ -27,17 +27,39 @@
     input:focus,select:focus{border-color:#334155;box-shadow:0 0 0 3px rgba(51,65,85,.25)}
     button{cursor:pointer;background:var(--accent);border:none;font-weight:600;color:#052e1a}
     button.ghost{background:#0b1222;border:1px solid #243042;color:#e5e7eb}
-    .swap{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center}
     .notes{font-size:12px;color:var(--muted);margin-top:6px}
-    .big{font-size:28px;font-weight:700;line-height:1.2;margin:6px 0 0}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .rate{font-size:13px;color:var(--muted)}
+    .rate{font-size:12px;color:var(--muted)}
     .ok{color:var(--accent)} .err{color:var(--danger)}
     footer{color:#64748b;font-size:12px;text-align:center;margin-top:18px}
     .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .chip{padding:8px 10px;border-radius:10px;border:1px solid #263349;color:#cbd5e1;background:#0b1222;cursor:pointer}
     .hidden{display:none}
     .hint{font-size:11px;color:#94a3b8}
+
+    /* — Büyük ve anlaşılır giriş/sonuç alanları — */
+    .display{
+      background:#0b1222;border:1px solid #243042;border-radius:14px;padding:14px 16px;
+    }
+    .amountBig input{
+      font-size:26px;font-weight:700;padding:14px 16px;border-radius:14px;
+    }
+    .resultBig{
+      font-size:30px;font-weight:800;line-height:1.25;letter-spacing:.2px;
+      padding:14px 16px;border-radius:14px;background:#0b1222;border:1px solid #243042;
+      min-height:62px;display:flex;align-items:center
+    }
+    .resultBig .sub{font-size:14px;font-weight:600;opacity:.9;margin-left:8px}
+
+    /* — Sabit kur özetlerini küçült — */
+    .summaryGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .summaryItem{background:#0b1222;border:1px solid #243042;border-radius:12px;padding:10px}
+    .summaryItem .title{font-size:11px;color:#9aa5b1;margin-bottom:6px}
+    .summaryItem .val{font-size:16px;font-weight:700}
+
+    /* Mobilde özet 2 sütuna düşsün */
+    @media (max-width:640px){
+      .summaryGrid{grid-template-columns:repeat(2,1fr)}
+    }
   </style>
 </head>
 <body>
@@ -50,11 +72,12 @@
       </div>
     </header>
 
-    <!-- KUR AYAR KARTI -->
+    <!-- KUR AYARI -->
     <div class="card" id="ratesCard">
       <h3 style="margin:0 0 8px 0">Kur Ayarları (Manuel)</h3>
       <p class="hint" style="margin-top:0">
-        Aşağıya **1 EUR** karşılığını yazın. Kaydederken otomatik olarak saklanır. MKD = Kuzey Makedonya dinarıdır.
+        Aşağıdaki **iki** alanı doldurun. Uygulama otomatik olarak <strong>1 EUR = ? MKD</strong> değerini hesaplayıp gösterir.
+        MKD = Kuzey Makedonya dinarıdır.
       </p>
       <div class="row">
         <div>
@@ -62,32 +85,30 @@
           <input id="eurTryInput" type="number" step="0.0001" inputmode="decimal" placeholder="ör. 36.5000">
         </div>
         <div>
-          <label>1 EUR kaç MKD?</label>
-          <input id="eurMkdInput" type="number" step="0.0001" inputmode="decimal" placeholder="ör. 61.5000">
+          <label>1 MKD kaç TRY?</label>
+          <input id="mkdTryInput" type="number" step="0.0001" inputmode="decimal" placeholder="ör. 0.6000">
         </div>
       </div>
       <div class="row" style="margin-top:10px">
-        <button id="saveRatesBtn">Kaydet</button>
-        <button id="cancelRatesBtn" class="ghost">İptal</button>
+        <div>
+          <label>1 EUR kaç MKD? (otomatik)</label>
+          <input id="eurMkdPreview" type="text" readonly class="display" placeholder="—">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="saveRatesBtn">Kaydet</button>
+        </div>
       </div>
       <div class="notes" id="ratesStatus"></div>
     </div>
 
     <!-- ÇEVİRİCİ -->
-    <div class="card" id="converterCard" class="hidden">
-      <div class="row3">
-        <div>
+    <div class="card hidden" id="converterCard">
+      <div class="row" style="align-items:end">
+        <div class="amountBig">
           <label>Tutar</label>
           <input id="amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="1.00" value="1">
         </div>
-        <button id="swap" class="swap" title="Dövizleri değiştir">⇄</button>
-        <div>
-          <label>Sonuç</label>
-          <input id="result" type="text" readonly placeholder="—">
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:12px">
         <div>
           <label>Kaynak</label>
           <select id="from">
@@ -96,61 +117,56 @@
             <option value="MKD">MKD (ден)</option>
           </select>
         </div>
-        <div>
-          <label>Hedef <span id="toHint" class="rate"></span></label>
-          <select id="to">
-            <option value="TRY">TRY (₺)</option>
-            <option value="EUR">EUR (€)</option>
-            <option value="MKD">MKD (ден)</option>
-          </select>
-        </div>
+      </div>
+
+      <div style="margin:10px 0; display:flex; gap:8px; align-items:center">
+        <button id="swap" class="ghost" title="Kaynak para birimini hızlı değiştir">⇄ Değiştir</button>
+        <div class="rate" id="rateLine"></div>
+      </div>
+
+      <!-- Büyük ve anlaşılır sonuç alanı -->
+      <div class="resultBig" id="resultBox">
+        <span id="resultMain">—</span>
+        <span class="sub" id="resultSub"></span>
       </div>
 
       <div class="chips" id="quickChips">
-        <div class="chip" data-from="EUR" data-to="TRY">EUR→TRY</div>
-        <div class="chip" data-from="EUR" data-to="MKD">EUR→MKD</div>
-        <div class="chip" data-from="TRY" data-to="EUR">TRY→EUR</div>
-        <div class="chip" data-from="TRY" data-to="MKD">TRY→MKD</div>
-        <div class="chip" data-from="MKD" data-to="EURTRY">MKD→(EUR & TRY)</div>
+        <div class="chip" data-from="EUR">EUR</div>
+        <div class="chip" data-from="TRY">TRY</div>
+        <div class="chip" data-from="MKD">MKD</div>
       </div>
 
-      <div class="rate" id="rateLine" style="margin-top:10px"></div>
       <div class="notes" id="statusLine"></div>
     </div>
 
-    <!-- ÖZET KUTULARI -->
-    <div class="card" id="summaryCard" class="hidden">
-      <div class="grid">
-        <div>
-          <label>1 EUR =</label>
-          <div class="big" id="eurTry">—</div>
+    <!-- Küçük özet kutuları -->
+    <div class="card hidden" id="summaryCard">
+      <div class="summaryGrid">
+        <div class="summaryItem">
+          <div class="title">1 EUR =</div>
+          <div class="val" id="s_eur_try">—</div>
           <div class="rate">TRY</div>
         </div>
-        <div>
-          <label>1 EUR =</label>
-          <div class="big" id="eurMkd">—</div>
+        <div class="summaryItem">
+          <div class="title">1 EUR =</div>
+          <div class="val" id="s_eur_mkd">—</div>
           <div class="rate">MKD</div>
         </div>
-      </div>
-      <div class="grid" style="margin-top:12px">
-        <div>
-          <label>1 TRY =</label>
-          <div class="big" id="tryEur">—</div>
+        <div class="summaryItem">
+          <div class="title">1 TRY =</div>
+          <div class="val" id="s_try_eur">—</div>
           <div class="rate">EUR</div>
         </div>
-        <div>
-          <label>1 MKD =</label>
-          <div class="big" id="mkdEur">—</div>
-          <div class="rate">EUR</div>
+        <div class="summaryItem">
+          <div class="title">1 MKD =</div>
+          <div class="val" id="s_mkd_try">—</div>
+          <div class="rate">TRY</div>
         </div>
-      </div>
-      <div class="notes">
-        Kurlar yerel olarak cihazınıza kaydedilir. İnternet gerektirmez.
       </div>
     </div>
 
     <footer>
-      Son güncelleme: <span id="updated">—</span>
+      Son güncelleme: <span id="updated">—</span> • İnternet bağlantısı gerekmez.
     </footer>
   </div>
 
