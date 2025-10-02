@@ -1,5 +1,5 @@
 // Tamamen MANUEL kurla çalışır. İnternet ve canlı kur yok.
-// Saklama: localStorage — { base:'EUR', rates:{EUR:1, TRY:x, MKD:y}, lastUpdated: ISO }
+// Saklama: localStorage — { base:'EUR', rates:{EUR:1, TRY:x, MKD:y}, lastUpdated: ISO, mkdTry: z }
 
 const $  = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -8,9 +8,9 @@ const els = {
   // rates form
   ratesCard: $('#ratesCard'),
   saveRatesBtn: $('#saveRatesBtn'),
-  cancelRatesBtn: $('#cancelRatesBtn'),
   eurTryInput: $('#eurTryInput'),
-  eurMkdInput: $('#eurMkdInput'),
+  mkdTryInput: $('#mkdTryInput'),
+  eurMkdPreview: $('#eurMkdPreview'),
   ratesStatus: $('#ratesStatus'),
   editRatesBtn: $('#editRatesBtn'),
   resetRatesBtn: $('#resetRatesBtn'),
@@ -18,32 +18,37 @@ const els = {
   // converter
   converterCard: $('#converterCard'),
   amount: $('#amount'),
-  result: $('#result'),
   from: $('#from'),
-  to: $('#to'),
-  toHint: $('#toHint'),
   swap: $('#swap'),
-  quickChips: $('#quickChips'),
   rateLine: $('#rateLine'),
   status: $('#statusLine'),
+  resultBox: $('#resultBox'),
+  resultMain: $('#resultMain'),
+  resultSub: $('#resultSub'),
+  quickChips: $('#quickChips'),
 
   // summary
   summaryCard: $('#summaryCard'),
-  eurTry: $('#eurTry'),
-  eurMkd: $('#eurMkd'),
-  tryEur: $('#tryEur'),
-  mkdEur: $('#mkdEur'),
+  s_eur_try: $('#s_eur_try'),
+  s_eur_mkd: $('#s_eur_mkd'),
+  s_try_eur: $('#s_try_eur'),
+  s_mkd_try: $('#s_mkd_try'),
 
   updated: $('#updated'),
 };
 
-const LS_KEY = 'manual-fx:eur-try-mkd:v1';
+const LS_KEY = 'manual-fx:eur-try-mkd:v2';
 
 let store = {
   base: 'EUR',
-  rates: { EUR: 1, TRY: null, MKD: null },
+  rates: { EUR: 1, TRY: null, MKD: null }, // EUR taban
+  mkdTry: null, // 1 MKD = ? TRY
   lastUpdated: null
 };
+
+// ---------- Utils ----------
+const fix = (n, p=4) => Number.parseFloat(n).toFixed(p);
+const okNum = v => Number.isFinite(v) && v > 0;
 
 // ---------- Storage ----------
 function save(){
@@ -53,7 +58,7 @@ function save(){
 function load(){
   try{
     const s = JSON.parse(localStorage.getItem(LS_KEY));
-    if (s && s.rates?.TRY && s.rates?.MKD) {
+    if (s?.rates?.TRY && s?.rates?.MKD && s?.mkdTry){
       store = s;
       els.updated.textContent = s.lastUpdated ? new Date(s.lastUpdated).toLocaleString() : '—';
       return true;
@@ -63,13 +68,21 @@ function load(){
 }
 function clearAll(){
   localStorage.removeItem(LS_KEY);
-  store = { base:'EUR', rates:{EUR:1, TRY:null, MKD:null}, lastUpdated:null };
+  store = { base:'EUR', rates:{EUR:1, TRY:null, MKD:null}, mkdTry:null, lastUpdated:null };
 }
 
-// ---------- UI Helpers ----------
-function showRatesCard(show){
-  els.ratesCard.classList.toggle('hidden', !show);
+// ---------- Math ----------
+function crossConvert(amount, from, to){
+  const r = store.rates; // EUR=1 taban
+  if (!okNum(r.TRY) || !okNum(r.MKD)) return '';
+  if (from === to) return fix(amount);
+  if (from === 'EUR') return fix(amount * r[to]);
+  if (to   === 'EUR') return fix(amount / r[from]);
+  return fix(amount * (r[to] / r[from]));
 }
+
+// ---------- UI helpers ----------
+function showRatesCard(show){ els.ratesCard.classList.toggle('hidden', !show); }
 function showConverter(show){
   els.converterCard.classList.toggle('hidden', !show);
   els.summaryCard.classList.toggle('hidden', !show);
@@ -82,107 +95,116 @@ function setStatus(text, kind='ok'){
   els.status.textContent = text || '';
   els.status.className = `notes ${kind}`;
 }
-function reflectMKDMode(){
-  const isMKD = els.from.value === 'MKD';
-  els.to.disabled = isMKD;
-  els.to.style.opacity = isMKD ? .6 : 1;
-  els.toHint.textContent = isMKD ? ' (MKD seçiliyken iki sonuç verilir)' : '';
-}
-function isReady(){
-  return typeof store.rates.TRY === 'number' && typeof store.rates.MKD === 'number';
-}
+function isReady(){ return okNum(store.rates.TRY) && okNum(store.rates.MKD) && okNum(store.mkdTry); }
 
-// ---------- Math ----------
-const fix = (n, p=4) => Number.parseFloat(n).toFixed(p);
-
-function crossConvert(amount, from, to){
-  const r = store.rates; // EUR=1 taban
-  if (!r || r.TRY == null || r.MKD == null) return '';
-  if (from === to) return fix(amount);
-  if (from === 'EUR') return fix(amount * r[to]);
-  if (to   === 'EUR') return fix(amount / r[from]);
-  // cross
-  return fix(amount * (r[to] / r[from]));
-}
-
-// ---------- Render ----------
+// Özet küçük kutular
 function renderSummary(){
   const r = store.rates;
-  els.eurTry.textContent = (r.TRY ?? 0).toFixed(4);
-  els.eurMkd.textContent = (r.MKD ?? 0).toFixed(4);
-  els.tryEur.textContent = (r.TRY ? (1/r.TRY).toFixed(6) : '—');
-  els.mkdEur.textContent = (r.MKD ? (1/r.MKD).toFixed(6) : '—');
-}
-function recalc(){
-  if (!isReady()){ els.result.value=''; els.rateLine.textContent=''; return; }
-  const amount = parseFloat(els.amount.value || '0');
-  const from = els.from.value;
-  const to = els.to.value;
-
-  if(!amount){ els.result.value=''; els.rateLine.textContent=''; return; }
-
-  if(from === 'MKD'){
-    const eurVal = crossConvert(amount, 'MKD', 'EUR');
-    const tryVal = crossConvert(amount, 'MKD', 'TRY');
-    els.result.value = `${eurVal} EUR | ${tryVal} TRY`;
-    els.rateLine.textContent =
-      `1 MKD = ${crossConvert(1,'MKD','EUR')} EUR | ${crossConvert(1,'MKD','TRY')} TRY`;
-  } else {
-    els.result.value = crossConvert(amount, from, to);
-    els.rateLine.textContent =
-      `${from}→${to}: 1 ${from} = ${crossConvert(1,from,to)} ${to}`;
+  if (!isReady()){
+    els.s_eur_try.textContent = '—';
+    els.s_eur_mkd.textContent = '—';
+    els.s_try_eur.textContent = '—';
+    els.s_mkd_try.textContent = '—';
+    return;
   }
-  renderSummary();
+  els.s_eur_try.textContent = fix(r.TRY, 4);
+  els.s_eur_mkd.textContent = fix(r.MKD, 4);
+  els.s_try_eur.textContent = (1/r.TRY).toFixed(6);
+  els.s_mkd_try.textContent = fix(store.mkdTry, 4);
+}
+
+// MKD modunda hedef seçimi yok; sonuç iki satır
+function reflectMode(){
+  const isMKD = els.from.value === 'MKD';
+  if (isMKD){
+    els.rateLine.textContent = `1 MKD = ${crossConvert(1,'MKD','EUR')} EUR • ${crossConvert(1,'MKD','TRY')} TRY`;
+  }else{
+    const to = els.from.value === 'EUR' ? 'TRY' : 'EUR';
+    els.rateLine.textContent = `1 ${els.from.value} = ${crossConvert(1,els.from.value,to)} ${to}`;
+  }
+}
+
+// Büyük sonuç alanını güncelle
+function renderResult(){
+  if (!isReady()){ els.resultMain.textContent = '—'; els.resultSub.textContent=''; return; }
+  const amt = parseFloat(els.amount.value || '0');
+  if (!okNum(amt)){ els.resultMain.textContent = '—'; els.resultSub.textContent=''; return; }
+
+  const from = els.from.value;
+  if (from === 'MKD'){
+    const eurVal = crossConvert(amt, 'MKD', 'EUR');
+    const tryVal = crossConvert(amt, 'MKD', 'TRY');
+    els.resultMain.textContent = `${eurVal} EUR`;
+    els.resultSub.textContent  = `• ${tryVal} TRY`;
+  } else if (from === 'EUR'){
+    const tryVal = crossConvert(amt, 'EUR', 'TRY');
+    const mkdVal = crossConvert(amt, 'EUR', 'MKD');
+    els.resultMain.textContent = `${tryVal} TRY`;
+    els.resultSub.textContent  = `• ${mkdVal} MKD`;
+  } else { // from === 'TRY'
+    const eurVal = crossConvert(amt, 'TRY', 'EUR');
+    const mkdVal = crossConvert(amt, 'TRY', 'MKD');
+    els.resultMain.textContent = `${eurVal} EUR`;
+    els.resultSub.textContent  = `• ${mkdVal} MKD`;
+  }
+  reflectMode();
+}
+
+// Kur ayarı alanlarında “1 EUR = ? MKD” önizlemesi
+function updatePreview(){
+  const eurTry = parseFloat((els.eurTryInput.value||'').toString().replace(',','.'));
+  const mkdTry = parseFloat((els.mkdTryInput.value||'').toString().replace(',','.'));
+  if (okNum(eurTry) && okNum(mkdTry)){
+    const eurMkd = eurTry / mkdTry; // (TRY/EUR) / (TRY/MKD) = MKD/EUR
+    els.eurMkdPreview.value = isFinite(eurMkd) ? fix(eurMkd,4) : '—';
+  } else {
+    els.eurMkdPreview.value = '';
+  }
 }
 
 // ---------- Events ----------
 function bind(){
-  // rates form
+  // Kur ayarı
+  els.eurTryInput.addEventListener('input', updatePreview);
+  els.mkdTryInput.addEventListener('input', updatePreview);
+
   els.saveRatesBtn.addEventListener('click', () => {
-    const tryVal = parseFloat(els.eurTryInput.value.replace(',','.'));
-    const mkdVal = parseFloat(els.eurMkdInput.value.replace(',','.'));
-    if (!Number.isFinite(tryVal) || tryVal <= 0){
-      setRatesStatus('Lütfen 1 EUR kaç TRY değerini geçerli girin.', 'err'); return;
-    }
-    if (!Number.isFinite(mkdVal) || mkdVal <= 0){
-      setRatesStatus('Lütfen 1 EUR kaç MKD değerini geçerli girin.', 'err'); return;
-    }
-    store.rates.TRY = tryVal;
-    store.rates.MKD = mkdVal;
+    const eurTry = parseFloat((els.eurTryInput.value||'').toString().replace(',','.'));
+    const mkdTry = parseFloat((els.mkdTryInput.value||'').toString().replace(',','.'));
+    if (!okNum(eurTry)) return setRatesStatus('Lütfen 1 EUR kaç TRY değerini geçerli girin.', 'err');
+    if (!okNum(mkdTry)) return setRatesStatus('Lütfen 1 MKD kaç TRY değerini geçerli girin.', 'err');
+
+    const eurMkd = eurTry / mkdTry; // tutarlı oran
+
+    store.rates.TRY = eurTry;      // 1 EUR = eurTry TRY
+    store.rates.MKD = eurMkd;      // 1 EUR = eurMkd MKD
+    store.mkdTry    = mkdTry;      // 1 MKD = mkdTry TRY
     store.lastUpdated = new Date().toISOString();
+
     save();
     setRatesStatus('Kurlar kaydedildi.', 'ok');
     showRatesCard(false);
     showConverter(true);
     setStatus('Manuel kurlarla çeviriyorsunuz.', 'ok');
-    recalc();
+    renderSummary();
+    renderResult();
   });
 
-  els.cancelRatesBtn.addEventListener('click', () => {
-    // Varsa önceki kayıtla devam
-    if (isReady()){
-      showRatesCard(false);
-      showConverter(true);
-      setStatus('Mevcut kurlarla devam ediliyor.', 'ok');
-    } else {
-      setRatesStatus('Kur girmeden devam edemezsiniz.', 'err');
-    }
-  });
-
-  els.editRatesBtn.addEventListener('click', () => {
-    // mevcut değerleri forma doldur
+  $('#editRatesBtn').addEventListener('click', () => {
     els.eurTryInput.value = store.rates.TRY ?? '';
-    els.eurMkdInput.value = store.rates.MKD ?? '';
+    els.mkdTryInput.value = store.mkdTry ?? '';
+    updatePreview();
     showRatesCard(true);
     showConverter(false);
     setRatesStatus('Kurları düzenleyin ve kaydedin.', 'ok');
   });
 
-  els.resetRatesBtn.addEventListener('click', () => {
+  $('#resetRatesBtn').addEventListener('click', () => {
     if (confirm('Tüm kayıtlı kur bilgilerini silmek istiyor musunuz?')){
       clearAll();
       els.eurTryInput.value = '';
-      els.eurMkdInput.value = '';
+      els.mkdTryInput.value = '';
+      els.eurMkdPreview.value = '';
       els.updated.textContent = '—';
       showRatesCard(true);
       showConverter(false);
@@ -191,41 +213,25 @@ function bind(){
     }
   });
 
-  // converter
+  // Çevirici
   ['input','change'].forEach(ev => {
-    els.amount.addEventListener(ev, recalc);
-    els.from.addEventListener(ev, () => { reflectMKDMode(); recalc(); });
-    els.to.addEventListener(ev, recalc);
+    els.amount.addEventListener(ev, renderResult);
+    els.from.addEventListener(ev, renderResult);
   });
 
   els.swap.addEventListener('click', () => {
-    if (els.from.value === 'MKD'){
-      // MKD modunda swap yerine EUR↔TRY arasında hızlı geçiş
-      els.from.value = 'EUR';
-      els.to.value = 'TRY';
-    } else {
-      const a = els.from.value;
-      els.from.value = els.to.value;
-      els.to.value = a;
-    }
-    reflectMKDMode();
-    recalc();
+    // Üçlü hızlı geçiş: EUR -> TRY -> MKD -> EUR
+    const order = ['EUR','TRY','MKD'];
+    const idx = order.indexOf(els.from.value);
+    els.from.value = order[(idx+1)%order.length];
+    renderResult();
   });
 
-  // quick chips
+  // Hızlı kaynak seçim çipleri
   $$('#quickChips .chip').forEach(ch => {
     ch.addEventListener('click', () => {
-      const f = ch.dataset.from;
-      const t = ch.dataset.to;
-      els.from.value = f;
-      if (t === 'EURTRY') {
-        reflectMKDMode();
-        recalc();
-      } else {
-        els.to.value = t;
-        reflectMKDMode();
-        recalc();
-      }
+      els.from.value = ch.dataset.from;
+      renderResult();
     });
   });
 }
@@ -233,19 +239,17 @@ function bind(){
 // ---------- Init ----------
 (function init(){
   bind();
-  const has = load();
-  if (has){
-    // kayıt varsa çevirici açık
+  if (load()){
+    // Kayıtlı değerlerle başla
     showRatesCard(false);
     showConverter(true);
     setStatus('Manuel kurlarla çeviriyorsunuz.', 'ok');
-    reflectMKDMode();
     renderSummary();
-    recalc();
+    renderResult();
   } else {
-    // ilk kurulum
+    // İlk kurulum
     showRatesCard(true);
     showConverter(false);
-    setRatesStatus('Başlamak için 1 EUR karşılıklarını girin ve kaydedin.', 'ok');
+    setRatesStatus('Başlamak için 1 EUR = ? TRY ve 1 MKD = ? TRY girin; otomatik oran hesaplanır.', 'ok');
   }
 })();
