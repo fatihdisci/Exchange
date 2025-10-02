@@ -1,0 +1,9 @@
+{
+  "name": "Kur Çevirici (EUR • TRY • MKD)",
+  "short_name": "Kur Çevirici",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "tr"
+}

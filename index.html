@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Kur Çevirici • EUR • TRY • MKD</title>
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    :root{
+      --bg:#0f172a; --card:#111827; --text:#e5e7eb; --muted:#9ca3af; --accent:#22c55e; --danger:#ef4444;
+      --stroke:#1f2937;
+    }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+    html,body{margin:0;height:100%;background:linear-gradient(180deg,#0b1222,#0f172a 40%,#0b1222)}
+    .wrap{max-width:720px;margin:0 auto;padding:20px}
+    header{display:flex;align-items:center;justify-content:space-between;color:var(--text);gap:12px}
+    h1{font-size:18px;margin:0}
+    .card{background:var(--card);border:1px solid var(--stroke);border-radius:16px;padding:16px;margin-top:12px;color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .row3{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+    input,select,button{
+      width:100%;padding:12px 14px;border-radius:12px;border:1px solid #293241;background:#0b1222;color:var(--text);
+      outline:none
+    }
+    input:focus,select:focus{border-color:#334155;box-shadow:0 0 0 3px rgba(51,65,85,.25)}
+    button{cursor:pointer;background:var(--accent);border:none;font-weight:600;color:#052e1a}
+    button.ghost{background:#0b1222;border:1px solid #243042;color:var(--text)}
+    .swap{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+    .notes{font-size:12px;color:var(--muted);margin-top:6px}
+    .big{font-size:28px;font-weight:700;line-height:1.2;margin:6px 0 0}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .rate{font-size:13px;color:var(--muted)}
+    .ok{color:var(--accent)} .err{color:var(--danger)}
+    footer{color:#64748b;font-size:12px;text-align:center;margin-top:18px}
+    .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .chip{padding:8px 10px;border-radius:10px;border:1px solid #263349;color:#cbd5e1;background:#0b1222;cursor:pointer}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Kur Çevirici (EUR • TRY • MKD)</h1>
+      <button id="refreshBtn" class="ghost" title="Kurları yenile">↻ Yenile</button>
+    </header>
+
+    <div class="card">
+      <div class="row3">
+        <div>
+          <label>Tutar</label>
+          <input id="amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="1.00" value="1">
+        </div>
+        <button id="swap" class="swap" title="Dövizleri değiştir">⇄</button>
+        <div>
+          <label>Sonuç</label>
+          <input id="result" type="text" readonly placeholder="—">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label>Kaynak</label>
+          <select id="from">
+            <option value="EUR">EUR (€)</option>
+            <option value="TRY">TRY (₺)</option>
+            <option value="MKD">MKD (ден)</option>
+          </select>
+        </div>
+        <div>
+          <label>Hedef <span id="toHint" class="rate"></span></label>
+          <select id="to">
+            <option value="TRY">TRY (₺)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="MKD">MKD (ден)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="chips" id="quickChips">
+        <div class="chip" data-from="EUR" data-to="TRY">EUR→TRY</div>
+        <div class="chip" data-from="EUR" data-to="MKD">EUR→MKD</div>
+        <div class="chip" data-from="TRY" data-to="EUR">TRY→EUR</div>
+        <div class="chip" data-from="TRY" data-to="MKD">TRY→MKD</div>
+        <div class="chip" data-from="MKD" data-to="EURTRY">MKD→(EUR & TRY)</div>
+      </div>
+
+      <div class="rate" id="rateLine" style="margin-top:10px"></div>
+      <div class="notes" id="statusLine"></div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div>
+          <label>1 EUR =</label>
+          <div class="big" id="eurTry">—</div>
+          <div class="rate">TRY</div>
+        </div>
+        <div>
+          <label>1 EUR =</label>
+          <div class="big" id="eurMkd">—</div>
+          <div class="rate">MKD</div>
+        </div>
+      </div>
+      <div class="grid" style="margin-top:12px">
+        <div>
+          <label>1 TRY =</label>
+          <div class="big" id="tryEur">—</div>
+          <div class="rate">EUR</div>
+        </div>
+        <div>
+          <label>1 MKD =</label>
+          <div class="big" id="mkdEur">—</div>
+          <div class="rate">EUR</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      Kurlar <strong>exchangerate.host</strong> üzerinden canlı alınır. Son veri: <span id="updated">—</span>
+      <br/>Offline çalışır: Son başarılı kur verileri cihazınıza kaydedilir.
+    </footer>
+  </div>
+
+  <script src="app.js" defer></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+    }
+  </script>
+</body>
+</html>
